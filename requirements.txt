@@ -1,0 +1,6 @@
+python-telegram-bot==13.15
+python-dotenv==1.0.0
+geopy==2.3.0
+requests==2.31.0
+pymongo==4.5.0
+spoonacular==3.0
