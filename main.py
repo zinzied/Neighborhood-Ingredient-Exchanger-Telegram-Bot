@@ -1,5 +1,15 @@
 import logging
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler, ConversationHandler
+import asyncio
+import sys
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    filters,
+    CallbackQueryHandler,
+    ConversationHandler
+)
 from bot.handlers import (
     start_command, help_command, register_command, add_ingredient_command,
     remove_ingredient_command, list_ingredients_command, search_command,
@@ -14,7 +24,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def main():
+async def main():
     """Start the bot."""
     from config import TELEGRAM_TOKEN
     
@@ -22,54 +32,70 @@ def main():
         logger.error("No TELEGRAM_TOKEN provided in environment variables!")
         return
 
-    # Create the Updater and pass it your bot's token
-    updater = Updater(TELEGRAM_TOKEN)
+    # Create the Application
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
-    # Get the dispatcher to register handlers
-    dp = updater.dispatcher
-
+    # Add handlers
     # Basic commands
-    dp.add_handler(CommandHandler("start", start_command))
-    dp.add_handler(CommandHandler("help", help_command))
-    dp.add_handler(CommandHandler("profile", profile_command))
+    application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("profile", profile_command))
     
     # Registration conversation handler
     register_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("register", register_command)],
         states={
-            "NAME": [MessageHandler(Filters.text & ~Filters.command, register_command)],
-            "LOCATION": [MessageHandler(Filters.location, set_location_command)]
+            "NAME": [MessageHandler(filters.TEXT & ~filters.COMMAND, register_command)],
+            "LOCATION": [MessageHandler(filters.LOCATION, set_location_command)]
         },
         fallbacks=[CommandHandler("cancel", cancel_command)]
     )
-    dp.add_handler(register_conv_handler)
+    application.add_handler(register_conv_handler)
     
     # Set location command
-    dp.add_handler(CommandHandler("setlocation", set_location_command))
+    application.add_handler(CommandHandler("setlocation", set_location_command))
     
     # Ingredient management
-    dp.add_handler(CommandHandler("add", add_ingredient_command))
-    dp.add_handler(CommandHandler("remove", remove_ingredient_command))
-    dp.add_handler(CommandHandler("list", list_ingredients_command))
+    application.add_handler(CommandHandler("add", add_ingredient_command))
+    application.add_handler(CommandHandler("remove", remove_ingredient_command))
+    application.add_handler(CommandHandler("list", list_ingredients_command))
     
     # Exchange functionality
-    dp.add_handler(CommandHandler("offer", offer_command))
-    dp.add_handler(CommandHandler("request", request_command))
-    dp.add_handler(CommandHandler("matches", matches_command))
-    dp.add_handler(CommandHandler("search", search_command))
+    application.add_handler(CommandHandler("offer", offer_command))
+    application.add_handler(CommandHandler("request", request_command))
+    application.add_handler(CommandHandler("matches", matches_command))
+    application.add_handler(CommandHandler("search", search_command))
     
     # Handle button callbacks
-    dp.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(CallbackQueryHandler(button_handler))
     
     # Handle text messages
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, text_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
-    # Start the Bot
-    updater.start_polling()
-    logger.info("Bot started successfully!")
-    
-    # Run the bot until you press Ctrl-C or the process receives SIGINT, SIGTERM or SIGABRT
-    updater.idle()
+    # Run the bot
+    logger.info("Starting bot...")
+    try:
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling(
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True
+        )
+        while True:
+            await asyncio.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Error running bot: {e}", exc_info=True)
+    finally:
+        await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
 
 if __name__ == '__main__':
-    main()
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        logger.error(f"Error: {e}", exc_info=True)

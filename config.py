@@ -1,10 +1,13 @@
-import os
 from dotenv import load_dotenv
+import os
 
+# Load environment variables from .env file
 load_dotenv()
 
-# Telegram Bot Token
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+# Get the token from environment variables
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+if not TELEGRAM_TOKEN:
+    raise ValueError("No TELEGRAM_TOKEN found in .env file")
 
 # Spoonacular API Key for recipe suggestions
 SPOONACULAR_API_KEY = os.getenv("SPOONACULAR_API_KEY")

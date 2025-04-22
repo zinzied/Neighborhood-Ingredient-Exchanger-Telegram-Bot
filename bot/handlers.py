@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import CallbackContext, ConversationHandler
+from telegram.ext import CallbackContext, ConversationHandler, ContextTypes
 from models.user import User
 from models.ingredient import Ingredient
 from services.matching import find_nearby_users, find_matching_recipes
@@ -11,28 +11,8 @@ logger = logging.getLogger(__name__)
 # Conversation states
 NAME, LOCATION = range(2)
 
-def start_command(update: Update, context: CallbackContext) -> None:
-    """Send a welcome message when the command /start is issued."""
-    user = update.effective_user
-    
-    welcome_message = (
-        f"👋 Hi {user.first_name}! Welcome to the Neighborhood Ingredient Exchanger Bot!\n\n"
-        "I help you share leftover ingredients with neighbors and reduce food waste.\n\n"
-        "🔍 Here's what I can do:\n"
-        "• Share ingredients you no longer need\n"
-        "• Find ingredients you're looking for\n"
-        "• Get recipe ideas from your combined pantries\n"
-        "• Connect with neighbors to exchange ingredients\n\n"
-        "To get started, please register with /register"
-    )
-    
-    keyboard = [
-        [KeyboardButton("📝 Register", callback_data="register")],
-        [KeyboardButton("❓ Help", callback_data="help")]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
-    
-    update.message.reply_text(welcome_message, reply_markup=reply_markup)
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("Hello! I'm your bot.")
 
 def help_command(update: Update, context: CallbackContext) -> None:
     """Send a help message when the command /help is issued."""
@@ -58,20 +38,20 @@ def help_command(update: Update, context: CallbackContext) -> None:
     )
     update.message.reply_text(help_text, parse_mode="Markdown")
 
-def register_command(update: Update, context: CallbackContext) -> int:
+async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start the registration process."""
     user = update.effective_user
     
     # Check if user is already registered
     existing_user = User.find_by_telegram_id(user.id)
     if existing_user:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"You're already registered as {existing_user.name}!\n"
             "You can update your profile with /profile"
         )
         return ConversationHandler.END
     
-    update.message.reply_text(
+    await update.message.reply_text(
         "Let's get you registered! What's your first name or nickname?"
     )
     return NAME
