@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import CallbackContext, ConversationHandler, ContextTypes
+from telegram.ext import CallbackContext, ConversationHandler
 from models.user import User
 from models.ingredient import Ingredient
 from services.matching import find_nearby_users, find_matching_recipes
@@ -11,10 +11,30 @@ logger = logging.getLogger(__name__)
 # Conversation states
 NAME, LOCATION = range(2)
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("Hello! I'm your bot.")
+async def start_command(update: Update, context: CallbackContext) -> None:
+    """Send a welcome message when the command /start is issued."""
+    user = update.effective_user
+    
+    welcome_message = (
+        f"👋 Hi {user.first_name}! Welcome to the Neighborhood Ingredient Exchanger Bot!\n\n"
+        "I help you share leftover ingredients with neighbors and reduce food waste.\n\n"
+        "🔍 Here's what I can do:\n"
+        "• Share ingredients you no longer need\n"
+        "• Find ingredients you're looking for\n"
+        "• Get recipe ideas from your combined pantries\n"
+        "• Connect with neighbors to exchange ingredients\n\n"
+        "To get started, please register with /register"
+    )
+    
+    keyboard = [
+        [KeyboardButton("📝 Register")],
+        [KeyboardButton("❓ Help")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+    
+    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
-def help_command(update: Update, context: CallbackContext) -> None:
+async def help_command(update: Update, context: CallbackContext) -> None:
     """Send a help message when the command /help is issued."""
     help_text = (
         "🌿 *Neighborhood Ingredient Exchanger* 🌿\n\n"
@@ -36,9 +56,9 @@ def help_command(update: Update, context: CallbackContext) -> None:
         
         "For any other questions, just type your question and I'll try to help!"
     )
-    update.message.reply_text(help_text, parse_mode="Markdown")
+    await update.message.reply_text(help_text, parse_mode="Markdown")
 
-async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def register_command(update: Update, context: CallbackContext) -> int:
     """Start the registration process."""
     user = update.effective_user
     
@@ -56,13 +76,13 @@ async def register_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     )
     return NAME
 
-def profile_command(update: Update, context: CallbackContext) -> None:
+async def profile_command(update: Update, context: CallbackContext) -> None:
     """Show user profile and settings."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You're not registered yet! Use /register to create your profile."
         )
         return
@@ -88,15 +108,15 @@ def profile_command(update: Update, context: CallbackContext) -> None:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    update.message.reply_text(profile_text, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(profile_text, reply_markup=reply_markup, parse_mode="Markdown")
 
-def set_location_command(update: Update, context: CallbackContext) -> int:
+async def set_location_command(update: Update, context: CallbackContext) -> int:
     """Set or update user location."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return ConversationHandler.END
@@ -109,7 +129,7 @@ def set_location_command(update: Update, context: CallbackContext) -> int:
         }
         
         User.update_location(user_data.id, location)
-        update.message.reply_text(
+        await update.message.reply_text(
             "Your location has been updated successfully! Now you can start sharing ingredients with neighbors."
         )
         return ConversationHandler.END
@@ -119,26 +139,26 @@ def set_location_command(update: Update, context: CallbackContext) -> int:
         keyboard = [[location_button], [KeyboardButton("Cancel")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         
-        update.message.reply_text(
+        await update.message.reply_text(
             "Please share your location so I can find neighbors near you.",
             reply_markup=reply_markup
         )
         return LOCATION
 
-def add_ingredient_command(update: Update, context: CallbackContext) -> None:
+async def add_ingredient_command(update: Update, context: CallbackContext) -> None:
     """Add an ingredient to user's pantry."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     args = context.args
     if len(args) < 2:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Please provide ingredient name and amount.\n"
             "Example: /add flour 500 g"
         )
@@ -150,28 +170,28 @@ def add_ingredient_command(update: Update, context: CallbackContext) -> None:
     
     result = Ingredient.add(user_data.id, name, amount, unit)
     if result:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"✅ Added {amount} {unit} of {name} to your pantry!"
         )
     else:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Failed to add ingredient. Please try again."
         )
 
-def remove_ingredient_command(update: Update, context: CallbackContext) -> None:
+async def remove_ingredient_command(update: Update, context: CallbackContext) -> None:
     """Remove an ingredient from user's pantry."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     args = context.args
     if not args:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Please provide the ingredient name to remove.\n"
             "Example: /remove flour"
         )
@@ -181,21 +201,21 @@ def remove_ingredient_command(update: Update, context: CallbackContext) -> None:
     result = Ingredient.remove(user_data.id, name)
     
     if result:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"✅ Removed {name} from your pantry!"
         )
     else:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"Could not find {name} in your pantry. Use /list to see your ingredients."
         )
 
-def list_ingredients_command(update: Update, context: CallbackContext) -> None:
+async def list_ingredients_command(update: Update, context: CallbackContext) -> None:
     """List all ingredients in user's pantry."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
@@ -203,7 +223,7 @@ def list_ingredients_command(update: Update, context: CallbackContext) -> None:
     ingredients = Ingredient.find_by_user_id(user_data.id)
     
     if not ingredients:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Your pantry is empty! Add ingredients with /add command."
         )
         return
@@ -227,21 +247,21 @@ def list_ingredients_command(update: Update, context: CallbackContext) -> None:
     
     message += "Use /add to add more ingredients or /remove to remove some."
     
-    update.message.reply_text(message, parse_mode="Markdown")
+    await update.message.reply_text(message, parse_mode="Markdown")
 
-def offer_command(update: Update, context: CallbackContext) -> None:
+async def offer_command(update: Update, context: CallbackContext) -> None:
     """Offer an ingredient to share with neighbors."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     if not user_data.location:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to set your location first! Use /setlocation to continue."
         )
         return
@@ -252,7 +272,7 @@ def offer_command(update: Update, context: CallbackContext) -> None:
         ingredients = Ingredient.find_by_user_id(user_data.id)
         
         if not ingredients:
-            update.message.reply_text(
+            await update.message.reply_text(
                 "Your pantry is empty! Add ingredients with /add command first."
             )
             return
@@ -264,7 +284,7 @@ def offer_command(update: Update, context: CallbackContext) -> None:
         keyboard.append([InlineKeyboardButton("Cancel", callback_data="cancel")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        update.message.reply_text(
+        await update.message.reply_text(
             "Select an ingredient to offer to your neighbors:",
             reply_markup=reply_markup
         )
@@ -275,7 +295,7 @@ def offer_command(update: Update, context: CallbackContext) -> None:
     ingredient = Ingredient.find_by_name_and_user(user_data.id, name)
     
     if not ingredient:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"Could not find {name} in your pantry. Use /list to see your ingredients."
         )
         return
@@ -284,7 +304,7 @@ def offer_command(update: Update, context: CallbackContext) -> None:
     result = User.add_offer(user_data.id, ingredient.id)
     
     if result:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"✅ You're now offering {name} to your neighbors!\n"
             f"I'll notify you when someone nearby is interested."
         )
@@ -293,35 +313,35 @@ def offer_command(update: Update, context: CallbackContext) -> None:
         matches = find_nearby_users(user_data, ingredient)
         
         if matches:
-            update.message.reply_text(
+            await update.message.reply_text(
                 f"📣 Good news! {len(matches)} neighbors are looking for {name}!\n"
                 f"Use /matches to see potential matches."
             )
     else:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Failed to create offer. Please try again."
         )
 
-def request_command(update: Update, context: CallbackContext) -> None:
+async def request_command(update: Update, context: CallbackContext) -> None:
     """Request an ingredient from neighbors."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     if not user_data.location:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to set your location first! Use /setlocation to continue."
         )
         return
     
     args = context.args
     if not args:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Please specify what ingredient you need.\n"
             "Example: /request sugar"
         )
@@ -335,7 +355,7 @@ def request_command(update: Update, context: CallbackContext) -> None:
     result = User.add_request(user_data.id, name, amount, unit)
     
     if result:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"✅ You're now requesting {amount} {unit} {name} from neighbors!\n"
             f"I'll notify you when someone nearby can help."
         )
@@ -344,7 +364,7 @@ def request_command(update: Update, context: CallbackContext) -> None:
         matches = find_nearby_users(user_data, name=name)
         
         if matches:
-            update.message.reply_text(
+            await update.message.reply_text(
                 f"📣 Good news! {len(matches)} neighbors are offering {name}!\n"
                 f"Use /matches to see potential matches."
             )
@@ -352,28 +372,28 @@ def request_command(update: Update, context: CallbackContext) -> None:
             # Check if we can suggest recipes
             recipe_matches = find_matching_recipes(user_data, matches)
             if recipe_matches:
-                update.message.reply_text(
+                await update.message.reply_text(
                     f"🍳 I found {len(recipe_matches)} recipes you could make by combining pantries with neighbors!\n"
                     f"Use /matches to see recipe suggestions."
                 )
     else:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Failed to create request. Please try again."
         )
 
-def matches_command(update: Update, context: CallbackContext) -> None:
+async def matches_command(update: Update, context: CallbackContext) -> None:
     """Show potential matches for user's offers and requests."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     if not user_data.location:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to set your location first! Use /setlocation to continue."
         )
         return
@@ -399,7 +419,7 @@ def matches_command(update: Update, context: CallbackContext) -> None:
         recipe_matches = find_matching_recipes(user_data, all_matches)
     
     if not (offer_matches or request_matches):
-        update.message.reply_text(
+        await update.message.reply_text(
             "No matches found nearby yet. Try offering or requesting more ingredients!"
         )
         return
@@ -457,28 +477,28 @@ def matches_command(update: Update, context: CallbackContext) -> None:
     keyboard.append([InlineKeyboardButton("Close", callback_data="cancel")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-def search_command(update: Update, context: CallbackContext) -> None:
+async def search_command(update: Update, context: CallbackContext) -> None:
     """Search for specific ingredients offered by neighbors."""
     user = update.effective_user
     user_data = User.find_by_telegram_id(user.id)
     
     if not user_data:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to register first! Use /register to create your profile."
         )
         return
     
     if not user_data.location:
-        update.message.reply_text(
+        await update.message.reply_text(
             "You need to set your location first! Use /setlocation to continue."
         )
         return
     
     args = context.args
     if not args:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Please specify what ingredient you're looking for.\n"
             "Example: /search sugar"
         )
@@ -490,7 +510,7 @@ def search_command(update: Update, context: CallbackContext) -> None:
     matches = find_nearby_users(user_data, name=ingredient_name)
     
     if not matches:
-        update.message.reply_text(
+        await update.message.reply_text(
             f"No neighbors offering {ingredient_name} found nearby.\n"
             f"Try /request {ingredient_name} to let others know you need it!"
         )
@@ -518,17 +538,17 @@ def search_command(update: Update, context: CallbackContext) -> None:
     keyboard.append([InlineKeyboardButton("Close", callback_data="cancel")])
     
     reply_markup = InlineKeyboardMarkup(keyboard)
-    update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+    await update.message.reply_text(message, reply_markup=reply_markup, parse_mode="Markdown")
 
-def button_handler(update: Update, context: CallbackContext) -> None:
+async def button_handler(update: Update, context: CallbackContext) -> None:
     """Handle button callbacks."""
     query = update.callback_query
-    query.answer()
+    await query.answer()
     
     data = query.data
     
     if data == "cancel":
-        query.edit_message_text("Action cancelled.")
+        await query.edit_message_text("Action cancelled.")
         return
     
     if data.startswith("offer_"):
@@ -542,7 +562,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             if ingredient:
                 result = User.add_offer(user_data.id, ingredient_id)
                 if result:
-                    query.edit_message_text(
+                    await query.edit_message_text(
                         f"✅ You're now offering {ingredient.name} to your neighbors!\n"
                         f"I'll notify you when someone nearby is interested."
                     )
@@ -551,15 +571,15 @@ def button_handler(update: Update, context: CallbackContext) -> None:
                     matches = find_nearby_users(user_data, ingredient)
                     
                     if matches:
-                        context.bot.send_message(
+                        await context.bot.send_message(
                             chat_id=user.id,
                             text=f"📣 Good news! {len(matches)} neighbors are looking for {ingredient.name}!\n"
                                 f"Use /matches to see potential matches."
                         )
                 else:
-                    query.edit_message_text("Failed to create offer. Please try again.")
+                    await query.edit_message_text("Failed to create offer. Please try again.")
             else:
-                query.edit_message_text("Ingredient not found. Please try again.")
+                await query.edit_message_text("Ingredient not found. Please try again.")
     
     elif data.startswith("contact_"):
         # Handle contact request
@@ -573,25 +593,25 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             chat_id = User.create_chat(user_data.id, target_user_id)
             
             if chat_id:
-                query.edit_message_text(
+                await query.edit_message_text(
                     f"I've set up a chat with {target_user.name}.\n"
                     f"You can now discuss ingredient exchange details privately."
                 )
                 
                 # Send a message to both users
-                context.bot.send_message(
+                await context.bot.send_message(
                     chat_id=user.id,
                     text=f"🤝 You're now connected with {target_user.name} for ingredient exchange.\n"
                         f"Use /chat_{chat_id} to send messages."
                 )
                 
-                context.bot.send_message(
+                await context.bot.send_message(
                     chat_id=target_user.telegram_id,
                     text=f"🤝 {user_data.name} wants to exchange ingredients with you!\n"
                         f"Use /chat_{chat_id} to respond."
                 )
             else:
-                query.edit_message_text("Failed to create chat. Please try again later.")
+                await query.edit_message_text("Failed to create chat. Please try again later.")
     
     elif data.startswith("request_"):
         # Handle request creation from search
@@ -603,7 +623,7 @@ def button_handler(update: Update, context: CallbackContext) -> None:
             result = User.add_request(user_data.id, ingredient_name)
             
             if result:
-                query.edit_message_text(
+                await query.edit_message_text(
                     f"✅ You're now requesting {ingredient_name} from neighbors!\n"
                     f"I'll notify you when someone nearby can help."
                 )
@@ -612,13 +632,13 @@ def button_handler(update: Update, context: CallbackContext) -> None:
                 matches = find_nearby_users(user_data, name=ingredient_name)
                 
                 if matches:
-                    context.bot.send_message(
+                    await context.bot.send_message(
                         chat_id=user.id,
                         text=f"📣 Good news! {len(matches)} neighbors are offering {ingredient_name}!\n"
                             f"Use /matches to see potential matches."
                     )
             else:
-                query.edit_message_text("Failed to create request. Please try again.")
+                await query.edit_message_text("Failed to create request. Please try again.")
     
     elif data == "recipe_details":
         # Show recipe details
@@ -672,14 +692,14 @@ def button_handler(update: Update, context: CallbackContext) -> None:
                 keyboard.append([InlineKeyboardButton("Back", callback_data="matches")])
                 
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+                await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
             else:
-                query.edit_message_text("No recipe suggestions found. Try adding more ingredients or connecting with more neighbors!")
+                await query.edit_message_text("No recipe suggestions found. Try adding more ingredients or connecting with more neighbors!")
     
     elif data == "matches":
         # Go back to matches view
         context.user_data['command'] = "matches"
-        matches_command(update, context)
+        await matches_command(update, context)
     
     elif data == "contact_cooks":
         # Show a list of potential cooking partners
@@ -719,18 +739,18 @@ def button_handler(update: Update, context: CallbackContext) -> None:
                 keyboard.append([InlineKeyboardButton("Back", callback_data="recipe_details")])
                 
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
+                await query.edit_message_text(message, reply_markup=reply_markup, parse_mode="Markdown")
             else:
-                query.edit_message_text("No potential cooking partners found nearby.")
+                await query.edit_message_text("No potential cooking partners found nearby.")
 
-def cancel_command(update: Update, context: CallbackContext) -> int:
+async def cancel_command(update: Update, context: CallbackContext) -> int:
     """Cancel current conversation."""
-    update.message.reply_text(
+    await update.message.reply_text(
         "Action cancelled. What would you like to do next?"
     )
     return ConversationHandler.END
 
-def text_handler(update: Update, context: CallbackContext) -> None:
+async def text_handler(update: Update, context: CallbackContext) -> None:
     """Handle regular text messages."""
     text = update.message.text.lower()
     
@@ -739,7 +759,7 @@ def text_handler(update: Update, context: CallbackContext) -> None:
         # Handle chat message
         parts = text.split(" ", 1)
         if len(parts) < 2:
-            update.message.reply_text("Please include a message after the chat command.")
+            await update.message.reply_text("Please include a message after the chat command.")
             return
         
         chat_id = parts[0].replace("/chat_", "")
@@ -760,49 +780,49 @@ def text_handler(update: Update, context: CallbackContext) -> None:
                 
                 if other_user:
                     # Send the message
-                    context.bot.send_message(
+                    await context.bot.send_message(
                         chat_id=other_user.telegram_id,
                         text=f"💬 {user_data.name}: {message}\n\nReply with /chat_{chat_id} [your message]"
                     )
                     
-                    update.message.reply_text("Message sent!")
+                    await update.message.reply_text("Message sent!")
                 else:
-                    update.message.reply_text("User not found.")
+                    await update.message.reply_text("User not found.")
             else:
-                update.message.reply_text("Chat not found or you don't have access to it.")
+                await update.message.reply_text("Chat not found or you don't have access to it.")
         return
     
     # Handle common keywords
     if "help" in text or "how" in text:
-        help_command(update, context)
+        await help_command(update, context)
     elif "register" in text:
-        register_command(update, context)
+        await register_command(update, context)
     elif "add" in text and "ingredient" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "To add an ingredient, use the /add command followed by the ingredient name, amount, and unit.\n"
             "Example: /add sugar 500 g"
         )
     elif "recipe" in text or "cook" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "Looking for recipe ideas? Use /matches to see potential recipe matches with neighbors.\n"
             "Or you can add more ingredients to your pantry with /add to get better suggestions!"
         )
     elif "location" in text:
-        set_location_command(update, context)
+        await set_location_command(update, context)
     elif "offer" in text or "share" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "To offer an ingredient to neighbors, use the /offer command followed by the ingredient name.\n"
             "Example: /offer flour\n"
             "Or just type /offer to see a list of your ingredients."
         )
     elif "need" in text or "request" in text or "looking for" in text:
-        update.message.reply_text(
+        await update.message.reply_text(
             "To request an ingredient from neighbors, use the /request command followed by the ingredient name.\n"
             "Example: /request sugar"
         )
     else:
         # Generic response for unrecognized messages
-        update.message.reply_text(
+        await update.message.reply_text(
             "I'm not sure how to respond to that. Type /help to see available commands.\n"
             "You can try:\n"
             "• /register - Create your profile\n"
