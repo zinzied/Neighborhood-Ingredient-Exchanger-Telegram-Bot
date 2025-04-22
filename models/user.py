@@ -34,7 +34,7 @@ class User:
     def create(cls, telegram_id, name, location=None):
         """Create a new user."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return None
         
         try:
@@ -60,7 +60,7 @@ class User:
     def find_by_telegram_id(cls, telegram_id):
         """Find a user by their Telegram ID."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return None
         
         try:
@@ -76,7 +76,7 @@ class User:
     def find_by_id(cls, user_id):
         """Find a user by their internal ID."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return None
         
         try:
@@ -92,7 +92,7 @@ class User:
     def update_location(cls, user_id, location):
         """Update a user's location."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return False
         
         try:
@@ -109,7 +109,7 @@ class User:
     def add_offer(cls, user_id, ingredient_id):
         """Add an ingredient offer."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return False
         
         try:
@@ -131,7 +131,7 @@ class User:
     def add_request(cls, user_id, ingredient_name, amount="", unit=""):
         """Add an ingredient request."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return False
         
         try:
@@ -155,7 +155,7 @@ class User:
     def remove_offer(cls, user_id, offer_index):
         """Remove an ingredient offer."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return False
         
         try:
@@ -179,7 +179,7 @@ class User:
     def remove_request(cls, user_id, request_index):
         """Remove an ingredient request."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return False
         
         try:
@@ -203,7 +203,7 @@ class User:
     def find_nearby_users(cls, location, max_distance_km=5):
         """Find users within a specified distance."""
         collection = cls.get_collection()
-        if not collection:
+        if collection is None:
             return []
         
         # MongoDB doesn't support geospatial queries in this version
